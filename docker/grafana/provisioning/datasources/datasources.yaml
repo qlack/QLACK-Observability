@@ -1,0 +1,50 @@
+apiVersion: 1
+
+datasources:
+  - uid: ef2aue8atucjkb
+    orgId: 1
+    name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    basicAuth: false
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 1000
+  - uid: df2audk1iccg0e
+    orgId: 1
+    name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://mimir:9009/prometheus
+    basicAuth: false
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      prometheusType: Mimir
+      prometheusVersion: 2.4.0
+  - uid: af2auf35sokxsc
+    orgId: 1
+    name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    basicAuth: false
+    isDefault: false
+    editable: true
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: ef2aue8atucjkb
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        filterByTraceID: false
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: df2audk1iccg0e
+      serviceMap:
+        datasourceUid: df2audk1iccg0e
+      nodeGraph:
+        enabled: true
+

@@ -1,0 +1,71 @@
+services:
+  # The OTeL collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.137.0
+    container_name: otel-collector
+    hostname: otel-collector
+    restart: unless-stopped
+    command: [ "--config=/etc/otelcol/config.yaml" ]
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
+      - "13133:13133"  # Health check extension
+
+  # Grafana Loki backend for logs
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    depends_on:
+      - otel-collector
+
+  # Grafana Mimir backend for metrics
+  mimir:
+    image: grafana/mimir:latest
+    container_name: mimir
+    hostname: mimir
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/mimir/mimir.yaml"
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./mimir/config:/etc/mimir:ro
+    depends_on:
+      - otel-collector
+
+  # Grafana Tempo backend for traces
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    hostname: tempo
+    restart: unless-stopped
+    command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+    ports:
+      - "3200:3200"   # Tempo HTTP API and UI
+    volumes:
+      - ./tempo/config:/etc/tempo
+    depends_on:
+      - otel-collector
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    hostname: grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - otel-collector
+      - loki
+      - mimir
+      - tempo
