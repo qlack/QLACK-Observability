@@ -69,6 +69,6 @@ The QLACK Observability repository is structured as follows:
 - `spring-boot/`: Contains Spring Boot-based demonstrators for both auto-instrumentation and
   manual-instrumentation approaches.
 - `quarkus/`: Contains Quarkus-based demonstrators for both auto-instrumentation and
-  manual-instrumentation approaches.
+  manual-instrumentation approaches. (work in progress)
 - `docker/`: Contains Docker Compose files for setting up the necessary infrastructure components
   such as OpenTelemetry Collector and Grafana stacks.
