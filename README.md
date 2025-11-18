@@ -47,8 +47,8 @@ QLACK Observability demonstrators showcase two different ways of integrating tel
    exports it to an OpenTelemetry Collector for further processing and visualisation.\
    **PROS**: No code changes needed, supports a wide range of libraries and frameworks
    out-of-the-box.\
-   **CONS**: Requires starting the application with the agent, no support for custom metrics, no
-   support for native images.
+   **CONS**: Requires starting the application with the agent, no support for custom metrics 
+   (unless bringing in manual-instrumentation dependencies), no support for native images.
 2. **Manual-Instrumentation**: Manually instrumentation of an application using the OpenTelemetry
    libraries. It involves adding dependencies and configuration to the application to enable
    telemetry collection.\
