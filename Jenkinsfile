@@ -57,8 +57,7 @@ pipeline {
             steps {
                 container (name: 'qlack-observability-builder'){
                     withSonarQubeEnv('sonar'){
-                        sh 'cd spring-boot'
-                        sh 'mvn sonar:sonar -Dsonar.projectName=QLACK-Observability -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_GLOBAL_KEY} -Dsonar.working.directory="/tmp"'
+                        sh 'mvn sonar:sonar -f spring-boot/pom.xml cho-Dsonar.projectName=QLACK-Observability -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_GLOBAL_KEY} -Dsonar.working.directory="/tmp"'
                     }
                 }
             }
