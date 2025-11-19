@@ -23,6 +23,7 @@
     <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
     <spring-cloud-starter-openfeign.version>4.3.0</spring-cloud-starter-openfeign.version>
     <opentelemetry-instrumentation-bom.version>2.21.0</opentelemetry-instrumentation-bom.version>
+    <sonar.version>3.7.0.1746</sonar.version>
   </properties>
 
   <dependencyManagement>
@@ -64,6 +65,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.sonarsource.scanner.maven</groupId>
+          <artifactId>sonar-maven-plugin</artifactId>
+          <version>${sonar.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
