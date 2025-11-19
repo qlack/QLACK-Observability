@@ -65,7 +65,7 @@ pipeline {
         stage('Produce bom.xml'){
             steps{
                 container (name: 'qlack-observability-builder'){
-                    sh 'mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom'
+                    sh 'mvn -f spring-boot/pom.xml org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom'
                 }
             }
         }
@@ -73,7 +73,7 @@ pipeline {
             steps{
                 container (name: 'qlack-observability-builder'){
                     sh '''
-                        echo '{"project": "c7992bff-9e73-4834-a26b-737deba30867", "bom": "'"$(cat target/bom.xml | base64 -w 0)"'"}' > payload.json
+                        echo '{"project": "c7992bff-9e73-4834-a26b-737deba30867", "bom": "'"$(cat spring-boot/target/bom.xml | base64 -w 0)"'"}' > payload.json
                     '''
 
                     sh '''
