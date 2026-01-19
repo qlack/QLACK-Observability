@@ -412,12 +412,15 @@ grafana:
             nodeGraph:
               enabled: true
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: nginx
     annotations: { }
     hosts:
-      - chart-example.local
-    tls: []
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
+      - qlack-observability.test.eurodyn.com
+    tls:
+      - hosts:
+          - qlack-observability.test.eurodyn.com
+
+  # Administrator credentials when not using an existing secret (see below)
+  adminUser: admin
+  adminPassword: observability
