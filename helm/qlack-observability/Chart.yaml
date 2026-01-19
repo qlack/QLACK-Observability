@@ -1,0 +1,33 @@
+apiVersion: v2
+name: qlack-observability
+description: A Helm chart that installs QLACK Observability components including OpenTelemetry Collector, Grafana Loki, Grafana Mimir, Grafana Tempo, and Grafana for monitoring and visualization.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: European Dynamics SA
+    url: https://www.eurodyn.com
+
+dependencies:
+    - name: opentelemetry-collector
+      version: "0.143.0"
+      repository: "https://open-telemetry.github.io/opentelemetry-helm-charts"
+      alias: otelCollector
+      condition: otelCollector.enabled
+    - name: loki
+      version: "6.49.0"
+      repository: "https://grafana.github.io/helm-charts"
+      condition: loki.enabled
+    - name: mimir-distributed
+      version: "6.0.5"
+      repository: "https://grafana.github.io/helm-charts"
+      alias: mimir
+      condition: mimir.enabled
+    - name: tempo
+      version: "1.24.3"
+      repository: "https://grafana.github.io/helm-charts"
+      condition: tempo.enabled
+    - name: grafana
+      version: "10.5.8"
+      repository: "https://grafana.github.io/helm-charts"
+      condition: grafana.enabled

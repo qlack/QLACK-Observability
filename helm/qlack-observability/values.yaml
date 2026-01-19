@@ -1,0 +1,423 @@
+################################################
+# QLACK Observability Helm Chart Values
+################################################
+global:
+  imagePullSecrets:
+    - name: regcred
+################################################
+# OpenTelemetry Collector Configuration
+################################################
+otelCollector:
+  enabled: true
+  fullnameOverride: "otel-collector"
+  mode: "deployment"
+  image:
+    repository: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s"
+  command:
+    name: "otelcol-k8s"
+  config:
+    exporters:
+      otlphttp/loki:
+        endpoint: http://loki:3100/otlp
+        tls:
+          insecure: true
+      otlphttp/mimir:
+        endpoint: http://mimir:9009/otlp
+      otlphttp/tempo:
+        endpoint: http://tempo:4318
+    processors:
+      batch:
+        timeout: 3s
+        send_batch_size: 1000
+        send_batch_max_size: 1250
+    receivers:
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: null
+          thrift_http:
+            endpoint: null
+          thrift_compact:
+            endpoint: null
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      zipkin:
+        endpoint: null
+    service:
+      pipelines:
+        logs:
+          exporters:
+            - otlphttp/loki
+          processors:
+            - batch
+          receivers:
+            - otlp
+        metrics:
+          exporters:
+            - otlphttp/mimir
+          processors:
+            - batch
+          receivers:
+            - otlp
+        traces:
+          exporters:
+            - otlphttp/tempo
+          processors:
+            - batch
+          receivers:
+            - otlp
+#################################################
+# Grafana Loki Configuration
+##################################################
+loki:
+  enabled: true
+  fullnameOverride: loki
+  global:
+    # -- Definitions to set up nginx resolver
+    dnsService: rke2-coredns-rke2-coredns
+    dnsNamespace: kube-system
+    clusterDomain: cluster.local
+  imagePullSecrets:
+    - name: regcred
+  deploymentMode: SingleBinary
+  read:
+    enabled: false
+    replicas: 0
+  write:
+    enabled: false
+    replicas: 0
+  backend:
+    enabled: false
+    replicas: 0
+  singleBinary:
+    enabled: true
+    replicas: 1
+  loki:
+    storage:
+      type: filesystem
+    useTestSchema: true
+  gateway:
+    nginxConfig:
+      enableIPv6: false
+##################################################
+# Grafana Mimir Configuration
+##################################################
+mimir:
+  enabled: true
+  fullnameOverride: mimir
+  global:
+    # -- Definitions to set up nginx resolver
+    dnsService: rke2-coredns-rke2-coredns
+    dnsNamespace: kube-system
+    clusterDomain: cluster.local
+  mimir:
+    # -- Base config file for Grafana Mimir. Contains Helm templates that are evaulated at install/upgrade.
+    # To modify the resulting configuration, either copy and alter 'mimir.config' as a whole or use the 'mimir.structuredConfig' to add and modify certain YAML elements.
+    config: |
+      usage_stats:
+        installation_mode: helm
+      activity_tracker:
+        filepath: /active-query-tracker/activity.log 
+      alertmanager:
+        data_dir: /data
+        enable_api: true
+        external_url: /alertmanager
+        {{- if .Values.alertmanager.zoneAwareReplication.enabled }}
+        sharding_ring:
+          zone_awareness_enabled: true
+        {{- end }}
+        {{- if .Values.alertmanager.fallbackConfig }}
+        fallback_config_file: /configs/alertmanager_fallback_config.yaml
+        {{- end }}  
+      {{- if .Values.minio.enabled }}
+      alertmanager_storage:
+        backend: s3
+        s3:
+          access_key_id: {{ .Values.minio.rootUser }}
+          bucket_name: {{ include "mimir.minioBucketPrefix" . }}-ruler
+          endpoint: {{ template "minio.fullname" .Subcharts.minio }}.{{ .Release.Namespace }}.svc:{{ .Values.minio.service.port }}
+          insecure: true
+          secret_access_key: {{ .Values.minio.rootPassword }}
+      {{- end }}  
+      # This configures how the store-gateway synchronizes blocks stored in the bucket. It uses Minio by default for getting started (configured via flags) but this should be changed for production deployments.
+      blocks_storage:
+        backend: filesystem
+        bucket_store:
+          sync_dir: /tmp/mimir/tsdb-sync
+        filesystem:
+          dir: /tmp/mimir/data/tsdb
+        tsdb:
+          dir: /tmp/mimir/tsdb
+      compactor:
+        compaction_interval: 30m
+        deletion_delay: 2h
+        max_closing_blocks_concurrency: 2
+        max_opening_blocks_concurrency: 4
+        symbols_flushers_concurrency: 4
+        first_level_compaction_wait_period: 25m
+        data_dir: /tmp/mimir/compactor
+        sharding_ring:
+          kvstore:
+            store: memberlist
+      distributor:
+        # Increase the default remote write timeout (applied to writing to Kafka too) because writing
+        # to Kafka-compatible backend may be slower than writing directly to ingesters.
+        remote_timeout: 5s
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: memberlist
+      frontend:
+        parallelize_shardable_queries: true
+        {{- if index .Values "results-cache" "enabled" }}
+        results_cache:
+          backend: memcached
+          memcached:
+            timeout: 500ms
+            addresses: {{ include "mimir.resultsCacheAddress" . }}
+            max_item_size: {{ mul (index .Values "results-cache").maxItemMemory 1024 1024 }}
+        cache_results: true
+        query_sharding_target_series_per_shard: 2500
+        {{- end }}
+        scheduler_address: {{ template "mimir.fullname" . }}-query-scheduler-headless.{{ .Release.Namespace }}.svc:{{ include "mimir.serverGrpcListenPort" . }} 
+      frontend_worker:
+        grpc_client_config:
+          max_send_msg_size: 419430400 # 400MiB
+        scheduler_address: {{ template "mimir.fullname" . }}-query-scheduler-headless.{{ .Release.Namespace }}.svc:{{ include "mimir.serverGrpcListenPort" . }}
+      ingest_storage:
+        enabled: true
+        kafka:
+          {{- if .Values.kafka.enabled }}
+          # Address of Kafka broker to bootstrap the connection.
+          address: {{ template "mimir.fullname" . }}-kafka.{{ .Release.Namespace }}.svc.{{ $.Values.global.clusterDomain }}:{{ $.Values.kafka.service.port }}
+          {{- end }}
+          # Topic name.
+          topic: mimir-ingest
+          # Mimir will auto-create the topic on start up.
+          # The topic MUST be provisioned with no fewer partitions than the maximum number of ingester replicas. The value of 100 is for demo purposes.
+          auto_create_topic_enabled: true
+          auto_create_topic_default_partitions: 100
+      ingester:
+        # Disallow Push gRPC API; everything comes through Kafka in the ingest storage architecture.
+        push_grpc_method_enabled: false
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: memberlist
+          replication_factor: 1
+          {{- if .Values.ingester.zoneAwareReplication.enabled }}
+          zone_awareness_enabled: true
+          {{- end }} 
+      ingester_client:
+        grpc_client_config:
+          max_recv_msg_size: 104857600
+          max_send_msg_size: 104857600 
+      limits:
+        # Limit queries to 500 days. You can override this on a per-tenant basis.
+        max_total_query_length: 12000h
+        # Adjust max query parallelism to 16x sharding, without sharding we can run 15d queries fully in parallel.
+        # With sharding we can further shard each day another 16 times. 15 days * 16 shards = 240 subqueries.
+        max_query_parallelism: 240
+        # Avoid caching results newer than 10m because some samples can be delayed
+        # This presents caching incomplete results
+        max_cache_freshness: 10m 
+      memberlist:
+        abort_if_cluster_join_fails: false
+        compression_enabled: false
+        join_members:
+          - dns+{{ include "mimir.fullname" . }}-gossip-ring.{{ .Release.Namespace }}.svc.{{ .Values.global.clusterDomain }}:{{ include "mimir.memberlistBindPort" . }}  
+      querier:
+        # With query sharding we run more but smaller queries. We must strike a balance
+        # which allows us to process more sharded queries in parallel when requested, but not overload
+        # queriers during non-sharded queries.
+        max_concurrent: 16
+      query_scheduler:
+        # Increase from default of 100 to account for queries created by query sharding
+        max_outstanding_requests_per_tenant: 800  
+      ruler:
+        alertmanager_url: dnssrvnoa+http://_http-metrics._tcp.{{ template "mimir.fullname" . }}-alertmanager-headless.{{ .Release.Namespace }}.svc.{{ .Values.global.clusterDomain }}/alertmanager
+        enable_api: true
+        rule_path: /data
+        {{- if .Values.ruler.remoteEvaluationDedicatedQueryPath }}
+        query_frontend:
+          address: dns:///{{ template "mimir.fullname" . }}-ruler-query-frontend.{{ .Release.Namespace }}.svc:{{ include "mimir.serverGrpcListenPort" .  }}
+        {{- end }}  
+      {{- if or (.Values.minio.enabled) (index .Values "metadata-cache" "enabled") }}
+      ruler_storage:
+        backend: filesystem
+        filesystem:
+          dir: /tmp/mimir/rules
+        {{- if .Values.minio.enabled }}
+        backend: s3
+        s3:
+          endpoint: {{ template "minio.fullname" .Subcharts.minio }}.{{ .Release.Namespace }}.svc:{{ .Values.minio.service.port }}
+          bucket_name: {{ include "mimir.minioBucketPrefix" . }}-ruler
+          access_key_id: {{ .Values.minio.rootUser }}
+          secret_access_key: {{ .Values.minio.rootPassword }}
+          insecure: true
+        {{- end }}
+        {{- if index .Values "metadata-cache" "enabled" }}
+        cache:
+          backend: memcached
+          memcached:
+            addresses: {{ include "mimir.metadataCacheAddress" . }}
+            max_item_size: {{ mul (index .Values "metadata-cache").maxItemMemory 1024 1024 }}
+            timeout: 500ms
+        {{- end }}
+      {{- end }} 
+      runtime_config:
+        file: /var/{{ include "mimir.name" . }}/runtime.yaml 
+      store_gateway:
+        sharding_ring:
+          replication_factor: 1
+          heartbeat_period: 1m
+          heartbeat_timeout: 10m
+          wait_stability_min_duration: 1m
+          {{- if .Values.store_gateway.zoneAwareReplication.enabled }}
+          kvstore:
+            prefix: multi-zone/
+          {{- end }}
+          tokens_file_path: /data/tokens
+          unregister_on_shutdown: false
+          {{- if .Values.store_gateway.zoneAwareReplication.enabled }}
+          zone_awareness_enabled: true
+          {{- end }}
+    structuredConfig:
+      server:
+        http_listen_port: 9009
+        log_level: error
+  ingester:
+    extraVolumes:
+      - name: tmp
+        emptyDir: { }
+    extraVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+  store_gateway:
+    extraVolumes:
+      - name: tmp
+        emptyDir: { }
+    extraVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+  compactor:
+    extraVolumes:
+      - name: tmp
+        emptyDir: { }
+    extraVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+  gateway:
+    nginx:
+      config:
+        enableIPv6: false
+  minio:
+    enabled: false
+  # Rollout Operator is enabled by default. It:
+  # Coordinates ordered restarts of Mimir components
+  # Ensures only safe numbers of pods restart at a time
+  # Waits for components to become healthy before continuing
+  # etc
+  rollout_operator:
+    enabled: true
+##################################################
+# Grafana Tempo Configuration
+##################################################
+tempo:
+  enabled: true
+  fullnameOverride: tempo
+  tempo:
+    metricsGenerator:
+      processor:
+        # service-graphs generates metrics for service graphs in Grafana
+        service_graphs:
+        # span-metrics generates RED (Rate, Error, Duration) metrics for spans
+        span_metrics:
+      storage:
+        # -- Path for storing metrics blocks. Defaults to /tmp/tempo for backward compatibility, but /var/tempo/metrics is recommended for production with persistent storage
+        path: "/tmp/tempo/generator/wal"
+        # -- Optional remote write configuration (will use remoteWriteUrl if not specified)
+        # Supports full Prometheus remote_write config: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write
+        remote_write:
+          - url: http://mimir:9009/api/v1/push
+            send_exemplars: true
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /tmp/tempo/wal
+        wal:
+          path: /tmp/tempo/blocks
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+##################################################
+# Grafana Configuration
+##################################################
+grafana:
+  enabled: true
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - orgId: 1
+          name: Loki
+          type: loki
+          access: proxy
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: false
+          editable: true
+          jsonData:
+            maxLines: 1000
+        - orgId: 1
+          name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://mimir:9009/prometheus
+          basicAuth: false
+          isDefault: true
+          editable: true
+          jsonData:
+            httpMethod: POST
+            prometheusType: Mimir
+            prometheusVersion: 2.4.0
+        - orgId: 1
+          name: Tempo
+          type: tempo
+          access: proxy
+          url: http://tempo:3200
+          basicAuth: false
+          isDefault: false
+          editable: true
+          jsonData:
+            tracesToLogsV2:
+              datasourceUid: ef2aue8atucjkb
+              spanStartTimeShift: "-1h"
+              spanEndTimeShift: "1h"
+              filterByTraceID: false
+              filterBySpanID: false
+            tracesToMetrics:
+              datasourceUid: df2audk1iccg0e
+            serviceMap:
+              datasourceUid: df2audk1iccg0e
+            nodeGraph:
+              enabled: true
+  ingress:
+    enabled: false
+    ingressClassName: nginx
+    annotations: { }
+    hosts:
+      - chart-example.local
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
