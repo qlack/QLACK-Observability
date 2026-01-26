@@ -36,14 +36,14 @@ otelCollector:
     # Configures the Kubernetes Processor to add Kubernetes metadata.
     kubernetesAttributes:
       enabled: true
-      extractAllPodLabels: false
+      extractAllPodLabels: true
       extractAllPodAnnotations: false
     # Configures the collector to collect node, pod, and container metrics from the API server on a kubelet.
     kubeletMetrics:
-      enabled: false
+      enabled: true
     # Configures the collector to collect kubernetes events.
     kubernetesEvents:
-      enabled: true
+      enabled: false
     # Configures the Kubernetes Cluster Receiver to collect cluster-level metrics.
     clusterMetrics:
       enabled: true
@@ -129,7 +129,6 @@ otelCollector:
   service:
     enabled: true
     type: ClusterIP
-  # Port configurations for the collector service
   # Port configurations for the collector service
   ports:
     # OTLP gRPC port (primary protocol for modern apps)
