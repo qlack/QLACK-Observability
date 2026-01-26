@@ -16,7 +16,7 @@ otelCollector:
   # Override the full name of the OpenTelemetry Collector resources
   fullnameOverride: "otel-collector"
   # Deployment mode: "deployment" for stateless collection, "daemonset" for per-node collection
-  mode: "deployment"
+  mode: "daemonset"
   # Container image configuration for the collector
   image:
     repository: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s"
@@ -126,6 +126,9 @@ otelCollector:
             - batch
           receivers:
             - otlp
+  service:
+    enabled: true
+    type: ClusterIP
   # Port configurations for the collector service
   # Port configurations for the collector service
   ports:
@@ -134,7 +137,8 @@ otelCollector:
       enabled: true
       containerPort: 4317
       servicePort: 4317
-      hostPort: 4317
+      # Enable hostPort if you do not enable service and need direct node access
+      # hostPort: 4317
       protocol: TCP
       appProtocol: grpc
     # OTLP HTTP port (alternative to gRPC, easier for some clients)
@@ -142,7 +146,8 @@ otelCollector:
       enabled: true
       containerPort: 4318
       servicePort: 4318
-      hostPort: 4318
+      # Enable hostPort if you do not enable service and need direct node access
+      # hostPort: 4318
       protocol: TCP
     # Jaeger compact port (legacy, disabled by default)
     jaeger-compact:
