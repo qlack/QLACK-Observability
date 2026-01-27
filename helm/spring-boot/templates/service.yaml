@@ -1,0 +1,27 @@
+## Service template: Creates a Kubernetes Service for each enabled microservice.
+## Loops over all services in values, checks if enabled, and renders a Service resource.
+
+{{- range $svcName, $svc := .Values.services }}
+{{- if $svc.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  # Service name is release name + service name, truncated for K8s
+  name: {{ printf "%s-%s" $.Release.Name $svcName | trunc 63 | trimSuffix "-" }}
+  labels:
+    # Standard and component labels
+    {{- include "spring-stack.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+spec:
+  type: {{ $svc.service.type }} # Service type (ClusterIP, NodePort, etc)
+  selector:
+    # Selector matches pods for this service/component
+    {{- include "spring-stack.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+  ports:
+    - name: http
+      port: {{ $svc.service.port }} # Exposed service port
+      targetPort: http # Maps to container port named 'http'
+---
+{{- end }}
+{{- end }}

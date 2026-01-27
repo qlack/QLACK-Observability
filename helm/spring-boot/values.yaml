@@ -1,0 +1,146 @@
+################################################
+# QLACK Spring Boot Applications Helm Chart Values
+#
+# This file defines default values for the Helm chart.
+# Override these values using --set or a custom values file.
+# For more info, see: https://helm.sh/docs/chart_template_guide/values_files/
+################################################
+
+# Global configuration applied across all services
+# These values are shared unless overridden in a specific service.
+global:
+  imagePullSecrets: [] # List of image pull secrets for private registries
+  labels: {}           # Extra labels to add to all resources
+
+services:
+################################################
+# Service Todo Configuration
+#
+# Configuration for the 'service-todo' Spring Boot microservice.
+# Set 'enabled' to false to disable deployment.
+################################################
+  todo:
+    enabled: true # Enable/disable the service-todo deployment
+    nameOverride: service-todo # Override the name of the deployment
+    replicaCount: 1 # Number of pod replicas
+    image:
+      repository: harbor.devops-d2.eurodyn.com/qlack-observability/service-todo # Image repository
+      tag: 1.0.0 # Image tag/version
+      pullPolicy: Always # Image pull policy (Always, IfNotPresent, Never)
+    containerPort: 9080 # Port the container exposes
+    service:
+      type: ClusterIP # Kubernetes service type (ClusterIP, NodePort, LoadBalancer)
+      port: 80 # Service port
+    ingress:
+      enabled: false # Enable ingress for this service
+      className: '' # Optional ingress class
+      hosts:
+      - host: todo.example.local # Hostname for ingress
+        paths:
+        - path: / # Path for ingress
+          pathType: Prefix # Path type (Prefix, Exact)
+      tls: [] # TLS configuration for ingress
+    env:
+      JAVA_TOOL_OPTIONS: "" # Extra JVM options
+      OTEL_SERVICE_NAME: "service-todo" # OpenTelemetry service name
+      OTEL_TRACES_EXPORTER: "otlp" # OTEL traces exporter
+      OTEL_METRICS_EXPORTER: "otlp" # OTEL metrics exporter
+      OTEL_LOGS_EXPORTER: "otlp" # OTEL logs exporter
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318" # OTEL collector endpoint
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf" # OTEL protocol
+      OTEL_RESOURCE_ATTRIBUTES_PROCESS_COMMAND_ARGS: "" # Disable process.command_args resource attribute
+      OTEL_INSTRUMENTATION_HTTP_CLIENT_EXCLUDE_URLS: "http://otel-collector:4318/v1/metrics" # Exclude OTEL metrics endpoint
+      # Optional overrides
+      # SERVER_PORT: "9080" # Override Spring Boot server port
+      SPRING_APPLICATION_NAME: "service-todo" # Spring Boot application name
+      # Logging configuration.
+      LOGGING_LEVEL_COM_EURODYN_QLACK_OBSERVABILITY_TODO: "INFO" # Log level for package
+      LOGGING_PATTERN_CONSOLE: "%d{yyyy-MM-dd HH:mm:ss} %clr(%-5level){spring} %-30.30logger - %msg%n" # Log pattern
+    envFromConfigMap: true # Load environment variables from ConfigMap
+    envFromSecret: true # Load environment variables from Secret
+    resources:
+      requests:
+        cpu: 100m # Minimum CPU requested
+        memory: 256Mi # Minimum memory requested
+      limits:
+        cpu: 500m # Maximum CPU allowed
+        memory: 512Mi # Maximum memory allowed
+    podAnnotations: {} # Extra annotations for the pod
+    securityContext:
+      runAsNonRoot: true # Run as non-root user
+      runAsUser: 10001 # User ID
+      runAsGroup: 10001 # Group ID
+      readOnlyRootFilesystem: false # Set root filesystem as read-only
+    probes:
+      enabled: false # Enable/disable liveness/readiness probes
+      path: /actuator/health # Probe endpoint
+      initialDelaySeconds: 20 # Initial delay before first probe
+      periodSeconds: 10 # Probe interval
+      timeoutSeconds: 2 # Probe timeout
+      failureThreshold: 6 # Probe failure threshold
+################################################
+# Service Time Authority Configuration
+#
+# Configuration for the 'service-timeauthority' Spring Boot microservice.
+# Set 'enabled' to false to disable deployment.
+################################################
+  timeauthority:
+    enabled: true # Enable/disable the service-timeauthority deployment
+    nameOverride: service-timeauthority # Override the name of the deployment
+    replicaCount: 1 # Number of pod replicas
+    image:
+      repository: harbor.devops-d2.eurodyn.com/qlack-observability/service-timeauthority # Image repository
+      tag: 1.0.0 # Image tag/version
+      pullPolicy: Always # Image pull policy
+    containerPort: 9081 # Port the container exposes
+    service:
+      type: ClusterIP # Kubernetes service type
+      port: 80 # Service port
+    ingress:
+      enabled: false # Enable ingress for this service
+      className: '' # Optional ingress class
+      hosts:
+      - host: timeauthority.example.local # Hostname for ingress
+        paths:
+        - path: / # Path for ingress
+          pathType: Prefix # Path type
+      tls: [] # TLS configuration for ingress
+    env:
+      JAVA_TOOL_OPTIONS: "" # Extra JVM options
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318" # OTEL collector endpoint
+      OTEL_TRACES_EXPORTER: "otlp" # OTEL traces exporter
+      OTEL_METRICS_EXPORTER: "otlp" # OTEL metrics exporter
+      OTEL_LOGS_EXPORTER: "otlp" # OTEL logs exporter
+      SPRING_APPLICATION_NAME: "service-timeauthority" # Spring Boot application name
+      # Logging configuration.
+      LOGGING_LEVEL_COM_EURODYN_QLACK_OBSERVABILITY_TIMEAUTHORITY: "INFO" # Log level for package
+      LOGGING_PATTERN_CONSOLE: "%d{yyyy-MM-dd HH:mm:ss} %clr(%-5level){spring} %-30.30logger - %msg%n" # Log pattern
+      # OTEL configuration.
+      # Disable process.command_args resource attribute to avoid exceeding Mimir's 2048 character limit
+      OTEL_RESOURCE_ATTRIBUTES_PROCESS_COMMAND_ARGS: ""
+      # Include all available metrics (including custom ones), and define where the OTLP exporter should send them.
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "*"
+      MANAGEMENT_OTLP_METRICS_EXPORT_URL: "http://otel-collector:4318/v1/metrics"
+      MANAGEMENT_OTLP_METRICS_EXPORT_STEP: "1s"
+    envFromConfigMap: true # Load environment variables from ConfigMap
+    envFromSecret: true # Load environment variables from Secret
+    resources:
+      requests:
+        cpu: 100m # Minimum CPU requested
+        memory: 256Mi # Minimum memory requested
+      limits:
+        cpu: 500m # Maximum CPU allowed
+        memory: 512Mi # Maximum memory allowed
+    podAnnotations: {} # Extra annotations for the pod
+    securityContext:
+      runAsNonRoot: true # Run as non-root user
+      runAsUser: 10001 # User ID
+      runAsGroup: 10001 # Group ID
+      readOnlyRootFilesystem: false # Set root filesystem as read-only
+    probes:
+      enabled: false # Enable/disable liveness/readiness probes
+      path: /actuator/health # Probe endpoint
+      initialDelaySeconds: 20 # Initial delay before first probe
+      periodSeconds: 10 # Probe interval
+      timeoutSeconds: 2 # Probe timeout
+      failureThreshold: 6 # Probe failure threshold

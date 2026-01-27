@@ -1,0 +1,44 @@
+# QLACK Spring Boot Helm Chart - Usage Notes
+# This chart deploys the 'service-todo' and 'service-timeauthority' Spring Boot microservices.
+# For full documentation, see: https://github.com/eurodyn/qlack-observability
+
+## Installation
+To install the chart with default values:
+  helm install <release-name> ./spring-boot
+
+To install with custom values:
+  helm install <release-name> ./spring-boot -f my-values.yaml
+
+## Upgrading
+To upgrade the release after changing values:
+  helm upgrade <release-name> ./spring-boot -f my-values.yaml
+
+## Uninstalling
+To uninstall the release:
+  helm uninstall <release-name>
+
+## Overriding Images
+To use custom images for the services:
+  helm install <release-name> ./spring-boot \
+    --set services.todo.image.repository=... --set services.todo.image.tag=... \
+    --set services.timeauthority.image.repository=... --set services.timeauthority.image.tag=...
+
+## Enabling Ingress
+To enable ingress and set custom hosts:
+  --set services.todo.ingress.enabled=true --set services.todo.ingress.hosts[0].host=todo.local \
+  --set services.timeauthority.ingress.enabled=true --set services.timeauthority.ingress.hosts[0].host=time.local
+
+## Accessing the Services
+- By default, services are exposed as ClusterIP. Use port-forwarding or enable ingress for external access.
+- Example (port-forward):
+    kubectl port-forward svc/<release-name>-todo 8080:80
+    kubectl port-forward svc/<release-name>-timeauthority 8081:80
+
+## Troubleshooting
+- Check pod logs: kubectl logs -l app.kubernetes.io/instance=<release-name>
+- Check resource status: kubectl get all -l app.kubernetes.io/instance=<release-name>
+- For OpenTelemetry issues, verify the OTEL collector endpoint and environment variables.
+
+## More Information
+- Chart values reference: values.yaml
+- Helm documentation: https://helm.sh/docs/

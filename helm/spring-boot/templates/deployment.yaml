@@ -1,0 +1,89 @@
+## Deployment template: Creates a Kubernetes Deployment for each enabled microservice.
+## Loops over all services, checks if enabled, and renders a Deployment resource.
+
+{{- range $svcName, $svc := .Values.services }}
+{{- if $svc.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # Deployment name is release name + service name, truncated for K8s
+  name: {{ printf "%s-%s" $.Release.Name $svcName | trunc 63 | trimSuffix "-" }}
+  labels:
+    # Standard and component labels
+    {{- include "spring-stack.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+spec:
+  replicas: {{ $svc.replicaCount }} # Number of pod replicas
+  selector:
+    matchLabels:
+      # Selector matches pods for this deployment/component
+      {{- include "spring-stack.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $svcName }}
+  template:
+    metadata:
+      labels:
+        # Pod labels
+        {{- include "spring-stack.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $svcName }}
+      {{- with $svc.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }} # Extra pod annotations
+      {{- end }}
+    spec:
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }} # Image pull secrets for private registries
+      {{- end }}
+      securityContext:
+        runAsNonRoot: {{ $svc.securityContext.runAsNonRoot }} # Run as non-root user
+        runAsUser: {{ $svc.securityContext.runAsUser }} # User ID
+        runAsGroup: {{ $svc.securityContext.runAsGroup }} # Group ID
+      containers:
+        - name: {{ $svcName }}
+          image: "{{ $svc.image.repository }}:{{ $svc.image.tag }}" # Container image
+          imagePullPolicy: {{ $svc.image.pullPolicy }} # Image pull policy
+          ports:
+            - name: http
+              containerPort: {{ $svc.containerPort }} # Container port
+          {{- if $svc.envFromConfigMap }}
+          envFrom:
+            - configMapRef:
+                name: {{ printf "%s-%s" $.Release.Name $svcName | trunc 63 | trimSuffix "-" }}
+          {{- end }}
+          {{- if $svc.envFromSecret }}
+          {{- if not $svc.envFromConfigMap }}
+          envFrom:
+          {{- end }}
+            - secretRef:
+                name: {{ printf "%s-%s" $.Release.Name $svcName | trunc 63 | trimSuffix "-" }}
+          {{- end }}
+          {{- with $svc.env }}
+          env:
+            {{- range $k, $v := . }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+          {{- if $svc.probes.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ $svc.probes.path }}
+              port: http
+            initialDelaySeconds: {{ $svc.probes.initialDelaySeconds }}
+            periodSeconds: {{ $svc.probes.periodSeconds }}
+            timeoutSeconds: {{ $svc.probes.timeoutSeconds }}
+            failureThreshold: {{ $svc.probes.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: {{ $svc.probes.path }}
+              port: http
+            initialDelaySeconds: {{ add $svc.probes.initialDelaySeconds 10 }}
+            periodSeconds: {{ $svc.probes.periodSeconds }}
+            timeoutSeconds: {{ $svc.probes.timeoutSeconds }}
+            failureThreshold: {{ $svc.probes.failureThreshold }}
+          {{- end }}
+---
+{{- end }}
+{{- end }}
