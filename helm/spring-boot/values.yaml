@@ -1,5 +1,5 @@
 ################################################
-# QLACK Spring Boot Applications Helm Chart Values
+# QLACK OBSERVABILITY Spring Boot Applications Helm Chart Values
 #
 # This file defines default values for the Helm chart.
 # Override these values using --set or a custom values file.
