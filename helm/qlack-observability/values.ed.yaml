@@ -1,8 +1,5 @@
 ################################################
 # QLACK Observability Helm Chart Values
-#
-# This file defines default values for the Helm chart.
-# It is a generic version suitable for public use.
 ################################################
 # Global configuration applied across all sub-charts
 global:
@@ -763,16 +760,16 @@ grafana:
     annotations: { }
     # Hostnames that route to Grafana
     hosts:
-      - qlack-observability.example.com
+      - qlack-observability.test.eurodyn.com
     # TLS/SSL configuration for HTTPS
     tls:
       - hosts:
-          - qlack-observability.example.com
+          - qlack-observability.test.eurodyn.com
   # Administrator credentials when not using an existing secret (see below)
   # Default admin username for Grafana login
   adminUser: admin
   # Default admin password for Grafana login (change this in production!)
-  adminPassword: admin
+  adminPassword: observability
   # Resource requests and limits for Grafana pod
   resources:
     limits:

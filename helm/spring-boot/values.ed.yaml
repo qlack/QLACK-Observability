@@ -1,5 +1,5 @@
 ################################################
-# Spring Boot Applications Helm Chart Values
+# QLACK OBSERVABILITY Spring Boot Applications Helm Chart Values
 #
 # This file defines default values for the Helm chart.
 # Override these values using --set or a custom values file.
@@ -24,9 +24,9 @@ services:
     nameOverride: service-todo # Override the name of the deployment
     replicaCount: 1 # Number of pod replicas
     image:
-      repository: qlack-observability/service-todo # Image repository
-      tag: latest # Image tag/version
-      pullPolicy: IfNotPresent # Image pull policy
+      repository: harbor.devops-d2.eurodyn.com/qlack-observability/service-todo # Image repository
+      tag: 1.0.0 # Image tag/version
+      pullPolicy: Always # Image pull policy (Always, IfNotPresent, Never)
     containerPort: 9080 # Port the container exposes
     service:
       type: ClusterIP # Kubernetes service type (ClusterIP, NodePort, LoadBalancer)
@@ -35,7 +35,7 @@ services:
       enabled: false # Enable ingress for this service
       className: '' # Optional ingress class
       hosts:
-      - host: todo.example.com # Hostname for ingress
+      - host: todo.example.local # Hostname for ingress
         paths:
         - path: / # Path for ingress
           pathType: Prefix # Path type (Prefix, Exact)
@@ -54,7 +54,7 @@ services:
       # SERVER_PORT: "9080" # Override Spring Boot server port
       SPRING_APPLICATION_NAME: "service-todo" # Spring Boot application name
       # Logging configuration.
-      LOGGING_LEVEL_ROOT: "INFO" # Log level for root
+      LOGGING_LEVEL_COM_EURODYN_QLACK_OBSERVABILITY_TODO: "INFO" # Log level for package
       LOGGING_PATTERN_CONSOLE: "%d{yyyy-MM-dd HH:mm:ss} %clr(%-5level){spring} %-30.30logger - %msg%n" # Log pattern
     envFromConfigMap: true # Load environment variables from ConfigMap
     envFromSecret: true # Load environment variables from Secret
@@ -78,7 +78,6 @@ services:
       periodSeconds: 10 # Probe interval
       timeoutSeconds: 2 # Probe timeout
       failureThreshold: 6 # Probe failure threshold
-
 ################################################
 # Service Time Authority Configuration
 #
@@ -90,9 +89,9 @@ services:
     nameOverride: service-timeauthority # Override the name of the deployment
     replicaCount: 1 # Number of pod replicas
     image:
-      repository: qlack-observability/service-timeauthority # Image repository
-      tag: latest # Image tag/version
-      pullPolicy: IfNotPresent # Image pull policy
+      repository: harbor.devops-d2.eurodyn.com/qlack-observability/service-timeauthority # Image repository
+      tag: 1.0.0 # Image tag/version
+      pullPolicy: Always # Image pull policy
     containerPort: 9081 # Port the container exposes
     service:
       type: ClusterIP # Kubernetes service type
@@ -101,7 +100,7 @@ services:
       enabled: false # Enable ingress for this service
       className: '' # Optional ingress class
       hosts:
-      - host: timeauthority.example.com # Hostname for ingress
+      - host: timeauthority.example.local # Hostname for ingress
         paths:
         - path: / # Path for ingress
           pathType: Prefix # Path type
@@ -114,7 +113,7 @@ services:
       OTEL_LOGS_EXPORTER: "otlp" # OTEL logs exporter
       SPRING_APPLICATION_NAME: "service-timeauthority" # Spring Boot application name
       # Logging configuration.
-      LOGGING_LEVEL_ROOT: "INFO" # Log level for root
+      LOGGING_LEVEL_COM_EURODYN_QLACK_OBSERVABILITY_TIMEAUTHORITY: "INFO" # Log level for package
       LOGGING_PATTERN_CONSOLE: "%d{yyyy-MM-dd HH:mm:ss} %clr(%-5level){spring} %-30.30logger - %msg%n" # Log pattern
       # OTEL configuration.
       # Disable process.command_args resource attribute to avoid exceeding Mimir's 2048 character limit

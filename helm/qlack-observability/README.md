@@ -1,147 +1,146 @@
 # QLACK Observability Helm Chart
 
-This repository contains the Helm chart for deploying the QLACK Observability stack, which includes the following components:
-- **OpenTelemetry Collector**: For collecting and exporting telemetry data.
-- **Grafana Loki**: For log aggregation and querying.
-- **Grafana Mimir**: For metrics storage and querying.
-- **Grafana Tempo**: For distributed tracing.
-- **Grafana**: For visualization and monitoring dashboards.
+This Helm chart deploys a complete observability stack based on the "LGTM" stack (Loki, Grafana, Tempo, Mimir) along with the OpenTelemetry Collector. It is designed to provide logs, metrics, and traces for your applications running in Kubernetes.
+
+## Components
+
+The chart installs and configures the following components:
+
+*   **OpenTelemetry Collector**: Collects telemetry data (metrics, logs, traces) from applications and infrastructure, processes it, and exports it to the storage backends.
+*   **Grafana Loki**: A log aggregation system inspired by Prometheus. used for storing and querying logs.
+*   **Grafana Mimir**: A scalable, long-term storage for Prometheus metrics.
+*   **Grafana Tempo**: A distributed tracing backend.
+*   **Grafana**: The visualization platform to view dashboards and explore data from Loki, Mimir, and Tempo.
+
+## Architecture
+
+1.  **Collection**: The OpenTelemetry Collector runs as a DaemonSet (agent) on every node. It collects:
+    *   **Logs**: From pods.
+    *   **Metrics**: From host and kubelet.
+    *   **Traces**: Received from applications via OTLP.
+2.  **Processing**: The collector processes the data (batching, memory limiting).
+3.  **Export**:
+    *   **Logs** are sent to **Loki**.
+    *   **Metrics** are sent to **Mimir**.
+    *   **Traces** are sent to **Tempo**.
+4.  **Visualization**: **Grafana** is pre-configured with datasources for Loki, Mimir, and Tempo, allowing seamless correlation between logs, metrics, and traces.
 
 ## Prerequisites
 
-Before deploying this Helm chart, ensure the following prerequisites are met:
-- Kubernetes cluster (v1.20+ recommended)
-- Helm 3.x installed
-- Docker registry credentials (if required for pulling images)
-- Persistent storage provisioner (if using persistent volumes)
+*   Kubernetes 1.20+
+*   Helm 3.0+
+*   Persistent Volume storage (for Loki, Mimir, Tempo, and Grafana data persistence).
 
 ## Installation
 
 ### 1. Add Helm Repositories
-Add the required Helm repositories:
+
+Ensure you have the necessary Helm repositories added if you are pulling dependencies:
+
 ```bash
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
-
-### 2. Clone the Repository
-Clone this repository to your local machine:
-```bash
-git clone https://github.com/your-repo/qlack-observability.git
-cd qlack-observability
 ```
-### 3. Install the Helm Chart
-Install the chart with default values:
-```bash
-helm install qlack-observability ./helm/qlack-observability
-```
-To customize the installation, modify the values.yaml file or pass custom values using the --set flag.
 
-### 4. Verify the Installation
-Check the status of the deployed pods:
+### 2. Install the Chart
+
+Install the chart using Helm:
+
 ```bash
-kubectl get pods -n <namespace>
+helm install qlack-observability ./helm/qlack-observability -n observability --create-namespace
 ```
 
 ## Configuration
 
+The `values.yaml` file contains the default configuration. You can override these values during installation using `--set` or by providing a custom values file.
+
 ### Global Configuration
 
-Set global values such as image pull secrets in the values.yaml file:
-```yaml
-global:
-  imagePullSecrets:
-    - name: regcred
-```
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `global.imagePullSecrets` | List of image pull secrets for private registries. | `[{"name": "regcred"}]` |
+| `global.dnsService` | DNS service name for internal resolution. | `rke2-coredns-rke2-coredns` |
 
-### Component-Specific Configuration
+### OpenTelemetry Collector (`otelCollector`)
 
-Each component can be enabled/disabled and configured individually in the values.yaml file.
+Configures the collection of telemetry data.
 
-#### OpenTelemetry Collector
-```yaml
-otelCollector:
-  enabled: true
-  config:
-    exporters:
-      otlphttp/loki:
-        endpoint: http://loki:3100/otlp
-```
-#### Grafana Loki
-```yaml
-loki:
-  enabled: true
-  loki:
-    storage:
-      type: filesystem
-```
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `otelCollector.enabled` | Enable the collector. | `true` |
+| `otelCollector.mode` | Deployment mode (`daemonset` or `deployment`). | `daemonset` |
+| `otelCollector.presets` | Enable/disable specific collection features (host metrics, k8s attributes, etc.). | See `values.yaml` |
 
-#### Grafana Mimir
-```yaml
-mimir:
-  enabled: true
-  mimir:
-    config: |
-      blocks_storage:
-        backend: filesystem
-```
+### Grafana Loki (`loki`)
 
-#### Grafana Tempo
-```yaml
-tempo:
-  enabled: true
-  tempo:
-    storage:
-      trace:
-        backend: local
-```
+Configures log storage.
 
-#### Grafana
-```yaml
-grafana:
-  enabled: true
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-        - name: Loki
-          type: loki
-          url: http://loki:3100
-```
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `loki.enabled` | Enable Loki. | `true` |
+| `loki.deploymentMode` | Deployment mode (e.g., `SingleBinary`). | `SingleBinary` |
+| `loki.loki.storage.type` | Storage backend type. | `filesystem` |
 
-## Accessing Grafana
-If you have not enabled ingress for Grafana, follow these steps to access the Grafana dashboard:
-1. Forward the Grafana service port:
-   ```kubectl port-forward svc/<grafana-service-name> 3000:80 -n <namespace>```.
-2. Open your browser and navigate to http://localhost:3000.
-3. Use the default credentials:
-   - Username: admin
-   - Password: admin (or as configured in values.yaml)
+### Grafana Mimir (`mimir`)
 
-If ingress is enabled, access Grafana via the configured ingress URL and use the appropriate credentials as described above.
+Configures metric storage.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `mimir.enabled` | Enable Mimir. | `true` |
+| `mimir.mimir.structuredConfig.blocks_storage.backend` | Storage backend for blocks. | `filesystem` |
+
+### Grafana Tempo (`tempo`)
+
+Configures trace storage.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `tempo.enabled` | Enable Tempo. | `true` |
+| `tempo.storage.trace.backend` | Storage backend for traces. | `local` |
+
+### Grafana (`grafana`)
+
+Configures the UI.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `grafana.enabled` | Enable Grafana. | `true` |
+| `grafana.adminPassword` | Initial admin password. | `admin` |
+| `grafana.ingress.hosts` | Hostnames for Ingress. | `qlack-observability.example.com` |
+
+## Usage after Installation
+
+1.  **Port Forward**:
+    If not using Ingress, port-forward Grafana:
+    ```bash
+    kubectl port-forward svc/qlack-observability-grafana 80:80 -n observability
+    ```
+2.  **Login**:
+    Open your browser to `http://localhost` (or your ingress host).
+    *   **User**: `admin`
+    *   **Password**: Value of `grafana.adminPassword` (default: `admin`).
+
+3.  **Explore**:
+    *   **Go to Explore** in Grafana.
+    *   Select **Loki** to query logs.
+    *   Select **Prometheus** (Mimir) to query metrics.
+    *   Select **Tempo** to query traces.
 
 ## Uninstallation
+
 To uninstall the Helm chart:
 ```bash
-helm uninstall qlack-observability
-```
-To delete all associated resources:
-```bash
-kubectl delete namespace <namespace>
+helm uninstall qlack-observability -n observability
 ```
 
-## Troubleshooting
-1. Check Pod Logs
-   If a component fails to start, check its logs:
+To delete all associated resources (including PVCs if they are not retained):
 ```bash
-kubectl logs <pod-name> -n <namespace>
+kubectl delete namespace observability
 ```
-2. Verify Helm Values
-   Ensure the values.yaml file is correctly configured for your environment.
-3. Check Kubernetes Events
-Inspect events for any issues:
-```bash
-kubectl get events -n <namespace>
-```
+
 ## Maintainers
-- European Dynamics SA: https://www.eurodyn.com
+
+*   European Dynamics SA: https://www.eurodyn.com
+
