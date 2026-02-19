@@ -381,8 +381,6 @@ mimir:
             store: memberlist
       # Ingester holds recent samples in-memory + WAL on disk; flushes blocks to storage.
       ingester:
-        # Chart exposes this; null means "use upstream default".
-        push_grpc_method_enabled: null
         ring:
           kvstore:
             store: memberlist
