@@ -27,6 +27,8 @@ pipeline {
                   - name: maven
                     mountPath: /root/.m2/
                     subPath: qlack-observability
+                  - name: sonar-scanner
+                    mountPath: /root/sonar-scanner
                   tty: true
                   securityContext:
                     privileged: true
@@ -37,6 +39,9 @@ pipeline {
                 - name: maven
                   persistentVolumeClaim:
                     claimName: maven-nfs-pvc
+                - name: sonar-scanner
+                  persistentVolumeClaim:
+                    claimName: sonar-scanner-nfs-pvc
             '''
             workspaceVolume persistentVolumeClaimWorkspaceVolume(claimName: 'workspace-nfs-pvc', readOnly: false)
         }
@@ -57,7 +62,10 @@ pipeline {
             steps {
                 container (name: 'qlack-observability-builder'){
                     withSonarQubeEnv('sonar'){
-                        sh 'mvn sonar:sonar -f spring-boot/pom.xml -Dsonar.projectName=QLACK-Observability -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_GLOBAL_KEY} -Dsonar.working.directory="/tmp"'
+                        sh """
+                        /root/sonar-scanner/sonar-scanner/bin/sonar-scanner -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_GLOBAL_KEY} -Dsonar.branch.name=\${SONAR_BRANCH_NAME} -Dsonar.working.directory="/tmp"
+                    """
+                        //sh 'mvn sonar:sonar -f spring-boot/pom.xml -Dsonar.projectName=QLACK-Observability -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_GLOBAL_KEY} -Dsonar.working.directory="/tmp"'
                     }
                 }
             }
@@ -73,12 +81,19 @@ pipeline {
             steps{
                 container (name: 'qlack-observability-builder'){
                     sh '''
-                        echo '{"project": "c7992bff-9e73-4834-a26b-737deba30867", "bom": "'"$(cat spring-boot/target/bom.xml | base64 -w 0)"'"}' > payload.json
+                        DT_BRANCH=$(echo "${BRANCH_NAME:-unknown}" | tr "/ " "__")
+ 
+                        curl -sS -X POST "${DEPENDENCY_TRACK_URL}" \
+                        -H "X-Api-Key: ${DEPENDENCY_TRACK_API_KEY}" \
+                        -F "autoCreate=true" \
+                        -F "parentName=Qlack-Observability" \
+                        -F "parentVersion=parent" \
+                        -F "projectName=QLACK-Observability" \
+                        -F "projectVersion=${DT_BRANCH}" \
+                        -F "bom=@spring-boot/target/bom.xml"
                     '''
-
-                    sh '''
-                        curl -X "PUT" ${DEPENDENCY_TRACK_URL} -H 'Content-Type: application/json' -H 'X-API-Key: '${DEPENDENCY_TRACK_API_KEY} -d @payload.json
-                    '''
+                        //echo '{"project": "c7992bff-9e73-4834-a26b-737deba30867", "bom": "'"$(cat spring-boot/target/bom.xml | base64 -w 0)"'"}' > payload.json
+                        //curl -X "PUT" ${DEPENDENCY_TRACK_URL} -H 'Content-Type: application/json' -H 'X-API-Key: '${DEPENDENCY_TRACK_API_KEY} -d @payload.json
                 }
             }
         }
