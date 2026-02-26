@@ -88,7 +88,7 @@ pipeline {
                         -F "autoCreate=true" \
                         -F "parentName=Qlack-Observability" \
                         -F "parentVersion=parent" \
-                        -F "projectName=QLACK-Observability" \
+                        -F "projectName=Qlack-Observability" \
                         -F "projectVersion=${DT_BRANCH}" \
                         -F "bom=@spring-boot/target/bom.xml"
                     '''
