@@ -1,9 +1,0 @@
-apiVersion: v2
-name: spring-boot
-description: Helm chart for service-todo and service-timeauthority Spring Boot services
-type: application
-version: 1.0.0
-appVersion:
-maintainers:
-  - name: European Dynamics SA
-    url: https://www.eurodyn.com
